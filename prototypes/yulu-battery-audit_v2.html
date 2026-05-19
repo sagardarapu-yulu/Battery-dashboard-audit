@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yulu — Battery Dashboard v2</title>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@700,500&display=swap" rel="stylesheet">
+<style>
+/* ─── DS Tokens ─── */
+:root {
+  --color-white:#FFFFFF; --color-grey-100:#F7F7F7; --color-grey-200:#E8E8E8;
+  --color-grey-300:#DDDDDD; --color-grey-400:#B0B0B0; --color-grey-500:#919191;
+  --color-grey-600:#717171; --color-grey-900:#222222;
+  --color-green-500:#00654F; --color-orange-500:#E07912; --color-red-500:#C13515;
+  --content-primary:var(--color-grey-900); --content-secondary:var(--color-grey-600);
+  --content-tertiary:var(--color-grey-500); --content-disabled:var(--color-grey-400);
+  --content-inverse:var(--color-white); --content-positive:var(--color-green-500);
+  --content-caution:var(--color-orange-500); --content-negative:var(--color-red-500);
+  --surface-primary:var(--color-grey-900); --surface-secondary:var(--color-grey-100);
+  --surface-disabled:var(--color-grey-300); --surface-inverse:var(--color-white);
+  --surface-positive:var(--color-green-500); --surface-caution:var(--color-orange-500);
+  --surface-negative:var(--color-red-500);
+  --border-primary:var(--color-grey-200); --border-secondary:var(--color-grey-400);
+  --border-selected:var(--color-grey-900); --border-positive:var(--color-green-500);
+  --border-caution:var(--color-orange-500); --border-negative:var(--color-red-500);
+  --canvas-primary:var(--color-white); --canvas-inverse:var(--color-grey-900);
+  --font:'Satoshi',sans-serif;
+  /* Spacing scale */
+  --s1:4px; --s2:8px; --s4:16px; --s6:24px; --s9:36px; --s12:48px; --s16:64px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);background:#E0E0E0;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px 64px;}
+
+/* ─── Phone shell ─── */
+.phone{width:393px;height:852px;border-radius:48px;box-shadow:0 24px 80px rgba(0,0,0,.15),0 2px 8px rgba(0,0,0,.06);overflow:hidden;background:var(--canvas-primary);position:relative;display:flex;flex-direction:column;flex-shrink:0;}
+.phone-label{text-align:center;margin-bottom:10px;font-size:12px;font-weight:700;color:#888;letter-spacing:.06em;text-transform:uppercase;width:393px;}
+
+/* ─── Top App Bar ───────────────────────────────────────────────
+   DS: 72px, surface/inverse bg, 4px h-pad, no title, border-bottom border/primary
+──────────────────────────────────────────────────────────────── */
+.top-app-bar{height:72px;background:var(--surface-inverse);display:flex;align-items:center;padding:0 4px;flex-shrink:0;border-bottom:1px solid var(--border-primary);}
+.tab-btn-icon{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px;border:none;background:none;cursor:pointer;transition:background .15s;position:relative;}
+.tab-btn-icon:hover{background:var(--surface-secondary);}
+.top-app-bar__spacer{flex:1;}
+/* notification indicator — custom */
+.notif-dot{position:absolute;top:10px;right:10px;width:8px;height:8px;border-radius:50%;background:var(--surface-negative);border:2px solid var(--canvas-primary);}
+
+/* ─── Header (Page Header component) ────────────────────────────
+   DS: padding-top 8px (spacing-2), h-pad 24px (spacing-6), bg canvas/primary
+   title   → Headings/Large  32px/700/40px  content/primary
+   subtext → Body/Medium     16px/500/24px  content/secondary
+   title–subtext gap → spacing-4 (16px)
+──────────────────────────────────────────────────────────────── */
+.page-header{padding:var(--s2) var(--s6) 0;background:var(--canvas-primary);flex-shrink:0;}
+.page-header__title{font-size:32px;font-weight:700;line-height:40px;color:var(--content-primary);}
+.page-header__sub{font-size:16px;font-weight:500;line-height:24px;color:var(--content-secondary);margin-top:var(--s4);}
+
+/* ─── Shift strip (custom — metadata row below header) ──────────
+   typography: Label/XSmall 12px/500/16px, content/tertiary
+──────────────────────────────────────────────────────────────── */
+.shift-strip{display:flex;align-items:center;gap:var(--s1);padding:var(--s2) var(--s6) 0;flex-shrink:0;}
+.shift-strip__dot{width:6px;height:6px;border-radius:50%;background:var(--surface-positive);flex-shrink:0;}
+.shift-strip__text{font-size:12px;font-weight:500;line-height:16px;color:var(--content-tertiary);}
+
+/* ─── Screen scroll ─── */
+.screen{flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;padding-bottom:152px;}
+.screen::-webkit-scrollbar{display:none;}
+
+/* Section vertical rhythm — DS: spacing-12 (48px) from header and between sections */
+.section-first{padding-top:var(--s12);}
+.section{padding-top:var(--s12);}
+
+/* ─── Section Header component ──────────────────────────────────
+   DS: 24px h-pad built in, no v-pad, no divider
+   heading → Headings/Small  20px/700/28px  content/primary
+   subtext → Label/Medium    16px/500/20px  content/secondary
+   heading–subtext gap → spacing-2 (8px)
+──────────────────────────────────────────────────────────────── */
+.section-header{padding:0 var(--s6);}
+.section-header__heading{font-size:20px;font-weight:700;line-height:28px;color:var(--content-primary);}
+.section-header__sub{font-size:16px;font-weight:500;line-height:20px;color:var(--content-secondary);margin-top:var(--s2);}
+/* Gap from section header to content:
+   custom cards → spacing-6 (24px, closest to chips rule)
+   list items   → spacing-9 (36px, DS rule for line items) */
+.section-header--gap-cards{margin-bottom:var(--s6);}
+.section-header--gap-list{margin-bottom:var(--s9);}
+
+/* ─── Bucket Cards (custom component) ───────────────────────────
+   Container: 24px h-pad to align with DS list item edges
+   Card: border, 16px radius, flex row, left accent bar
+   label    → Label/Medium700  16px/700/20px  content/primary
+   timeframe → Label/Small     14px/500/16px  content/secondary
+   count     → Display/Small   40px/700/52px  semantic color (functional number that changes)
+──────────────────────────────────────────────────────────────── */
+.bucket-cards{padding:0 var(--s6);}
+.bucket-card{display:flex;align-items:center;background:var(--canvas-primary);border:1px solid var(--border-primary);border-radius:16px;overflow:hidden;margin-bottom:var(--s2);cursor:pointer;transition:background .15s,transform .1s;}
+.bucket-card:hover{background:var(--surface-secondary);}
+.bucket-card:active{transform:scale(.99);}
+.bucket-card--alert{border-color:var(--border-negative);background:rgba(193,53,21,.03);}
+.bucket-card--alert:hover{background:rgba(193,53,21,.06);}
+/* left accent bar — 4px wide, full height */
+.bucket-card__bar{width:4px;align-self:stretch;border-radius:0 2px 2px 0;flex-shrink:0;margin-right:var(--s4);}
+.bucket-card__bar--negative{background:var(--surface-negative);}
+.bucket-card__bar--caution{background:var(--surface-caution);}
+.bucket-card__bar--positive{background:var(--surface-positive);}
+/* info block: 16px vertical padding to set card height */
+.bucket-card__info{flex:1;min-width:0;padding:var(--s4) 0;}
+.bucket-card__label{font-size:16px;font-weight:700;line-height:20px;color:var(--content-primary);}
+.bucket-card__timeframe{font-size:14px;font-weight:500;line-height:16px;color:var(--content-secondary);margin-top:var(--s1);}
+/* trailing: count + chevron */
+.bucket-card__trailing{display:flex;align-items:center;gap:var(--s2);padding-right:var(--s4);flex-shrink:0;}
+.bucket-card__count{font-size:40px;font-weight:700;line-height:52px;}
+.bucket-card__count--negative{color:var(--content-negative);}
+.bucket-card__count--caution{color:var(--content-caution);}
+.bucket-card__count--positive{color:var(--content-positive);}
+
+/* ─── Alert Nudge (custom — contextual indicator below Red card)
+   text → Label/Small 14px/500/16px, content/negative
+   Note: alpha surface has no DS token — custom prototype treatment only
+──────────────────────────────────────────────────────────────── */
+.alert-nudge{display:flex;align-items:center;gap:var(--s2);padding:var(--s2) var(--s4);background:rgba(193,53,21,.05);border:1px solid rgba(193,53,21,.2);border-radius:12px;margin-bottom:var(--s2);}
+.alert-nudge__text{font-size:14px;font-weight:500;line-height:16px;color:var(--content-negative);}
+
+/* ─── List Item component ────────────────────────────────────────
+   DS: 72px fixed height (no subheading), 24px h-pad, 24px v-pad
+   headline → Label/Medium  16px/500/20px  content/primary
+   value    → Label/Medium  16px/500/20px  content/secondary
+   divider: 1px border/primary, 24px inset L+R
+   last item: showDivider = false
+──────────────────────────────────────────────────────────────── */
+.list-item{display:flex;align-items:center;min-height:72px;padding:var(--s6);gap:var(--s4);position:relative;transition:background .12s;cursor:default;}
+.list-item--clickable{cursor:pointer;}
+.list-item--clickable:hover{background:var(--surface-secondary);}
+.list-item::after{content:'';position:absolute;bottom:0;left:var(--s6);right:var(--s6);height:1px;background:var(--border-primary);}
+.list-item--no-divider::after{display:none;}
+.list-item__content{flex:1;min-width:0;}
+.list-item__headline{font-size:16px;font-weight:500;line-height:20px;color:var(--content-primary);}
+.list-item__value{font-size:16px;font-weight:500;line-height:20px;color:var(--content-secondary);}
+.list-item__trailing{display:flex;align-items:center;gap:var(--s2);flex-shrink:0;}
+
+/* ─── Status Badge (custom read-only chip) ─── */
+.status-badge{height:24px;padding:0 var(--s2);border-radius:100px;font-size:12px;font-weight:700;line-height:24px;white-space:nowrap;display:inline-block;}
+.status-badge--charged{background:rgba(0,101,79,.1);color:var(--content-positive);}
+.status-badge--idle{background:var(--surface-secondary);color:var(--content-secondary);}
+.status-badge--discharging{background:rgba(224,121,18,.1);color:var(--content-caution);}
+.status-badge--faulty{background:rgba(193,53,21,.1);color:var(--content-negative);}
+
+/* ─── Buttons ────────────────────────────────────────────────────
+   DS: 64px height, full pill, Label/Medium700 (16px/700/20px)
+   Primary: surface/primary bg, content/inverse text
+   Secondary: surface/secondary bg, content/primary text
+   Full width for bottom-bar CTAs; no icons (not requested by designer)
+   Stack vertically: Primary ALWAYS on top
+──────────────────────────────────────────────────────────────── */
+.btn-primary{width:100%;height:var(--s16);border-radius:100px;border:none;background:var(--surface-primary);color:var(--content-inverse);font-family:var(--font);font-size:16px;font-weight:700;line-height:20px;cursor:pointer;transition:opacity .15s,transform .1s;display:flex;align-items:center;justify-content:center;}
+.btn-primary:hover{opacity:.88;}
+.btn-primary:active{transform:scale(.98);}
+.btn-secondary{width:100%;height:var(--s16);border-radius:100px;border:none;background:var(--surface-secondary);color:var(--content-primary);font-family:var(--font);font-size:16px;font-weight:700;line-height:20px;cursor:pointer;transition:opacity .15s;display:flex;align-items:center;justify-content:center;}
+.btn-secondary:hover{opacity:.8;}
+
+/* ─── Bottom Bar ── spacing-4 top, spacing-6 sides, spacing-9 bottom ─── */
+.bottom-bar{position:absolute;bottom:0;left:0;right:0;padding:var(--s4) var(--s6) var(--s9);background:linear-gradient(to bottom,transparent,var(--canvas-primary) 28%);z-index:5;display:flex;flex-direction:column;gap:var(--s2);}
+
+/* ─── Overlay — DS: black #000 at 50%, fills entire screen ─── */
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);z-index:10;opacity:0;pointer-events:none;transition:opacity .24s;}
+.overlay.vis{opacity:1;pointer-events:all;}
+
+/* ─── Bottom Sheet (custom) ─── */
+.sheet{position:absolute;bottom:0;left:0;right:0;background:var(--canvas-primary);border-radius:24px 24px 0 0;z-index:11;box-shadow:0 -4px 24px rgba(0,0,0,.1);transform:translateY(100%);transition:transform .28s cubic-bezier(.34,1.1,.64,1);}
+.sheet.vis{transform:translateY(0);}
+.sheet.hiding{transform:translateY(100%);transition:transform .2s ease-in;}
+.sheet__handle{width:36px;height:4px;background:var(--border-primary);border-radius:2px;margin:var(--s4) auto var(--s2);}
+.sheet__head{padding:var(--s2) var(--s6) var(--s4);display:flex;align-items:flex-start;justify-content:space-between;}
+/* title → Headings/Small 20px/700/28px */
+.sheet__title{font-size:20px;font-weight:700;line-height:28px;color:var(--content-primary);}
+/* sub → Label/Small 14px/500/16px */
+.sheet__sub{font-size:14px;font-weight:500;line-height:16px;color:var(--content-secondary);margin-top:var(--s1);}
+.sheet__close{width:32px;height:32px;border-radius:50%;background:var(--surface-secondary);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px;transition:background .15s;}
+.sheet__close:hover{background:var(--color-grey-200);}
+.sheet__body{padding:0 var(--s6) var(--s12);max-height:460px;overflow-y:auto;}
+.sheet__body::-webkit-scrollbar{display:none;}
+
+/* Battery row inside sheets */
+.bat-row{display:flex;align-items:center;padding:var(--s4) 0;border-bottom:1px solid var(--border-primary);gap:var(--s4);}
+.bat-row:last-child{border-bottom:none;}
+.bat-row__bar{width:3px;align-self:stretch;border-radius:2px;flex-shrink:0;}
+.bat-row__bar--negative{background:var(--surface-negative);}
+.bat-row__bar--caution{background:var(--surface-caution);}
+.bat-row__bar--positive{background:var(--surface-positive);}
+.bat-row__main{flex:1;min-width:0;}
+/* id → Label/Medium 16px/500 */
+.bat-row__id{font-size:16px;font-weight:500;line-height:20px;color:var(--content-primary);}
+/* loc → Label/Small 14px/500 */
+.bat-row__loc{font-size:14px;font-weight:500;line-height:16px;color:var(--content-secondary);margin-top:2px;}
+/* dur → Label/Small 14px/500 with semantic color */
+.bat-row__dur{font-size:14px;font-weight:500;line-height:16px;white-space:nowrap;flex-shrink:0;}
+.bat-row__dur--negative{color:var(--content-negative);}
+.bat-row__dur--caution{color:var(--content-caution);}
+.bat-row__dur--positive{color:var(--content-positive);}
+
+/* Mark faulty sheet */
+.mf-input-row{display:flex;gap:var(--s2);margin-bottom:var(--s4);}
+.mf-input{flex:1;height:52px;border:1.5px solid var(--border-primary);border-radius:12px;padding:0 var(--s4);font-family:var(--font);font-size:16px;font-weight:500;color:var(--content-primary);outline:none;transition:border-color .15s;}
+.mf-input:focus{border-color:var(--border-secondary);}
+.mf-submit{height:52px;padding:0 var(--s4);border-radius:12px;border:none;background:var(--surface-negative);color:var(--content-inverse);font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;transition:opacity .15s;}
+.mf-submit:hover{opacity:.88;}
+.mf-confirm{padding:var(--s4);background:rgba(193,53,21,.06);border:1px solid rgba(193,53,21,.2);border-radius:12px;display:none;}
+.mf-confirm__title{font-size:14px;font-weight:700;color:var(--content-negative);}
+.mf-confirm__sub{font-size:14px;font-weight:500;color:var(--content-secondary);margin-top:var(--s1);}
+
+/* Notification items */
+.notif-item{display:flex;gap:var(--s4);padding:var(--s4) 0;border-bottom:1px solid var(--border-primary);}
+.notif-item:last-child{border-bottom:none;}
+.notif-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.notif-icon--negative{background:rgba(193,53,21,.1);}
+.notif-icon--caution{background:rgba(224,121,18,.1);}
+.notif-body{flex:1;min-width:0;}
+/* title → Label/Medium700 16px/700 */
+.notif-body__title{font-size:16px;font-weight:700;line-height:20px;color:var(--content-primary);}
+/* sub → Body/Small 14px/500/20px */
+.notif-body__sub{font-size:14px;font-weight:500;line-height:20px;color:var(--content-secondary);margin-top:var(--s1);}
+/* time → Label/XSmall 12px/500/16px */
+.notif-body__time{font-size:12px;font-weight:500;line-height:16px;color:var(--content-tertiary);margin-top:var(--s1);}
+</style>
+</head>
+<body>
+
+<div style="display:flex;flex-direction:column;align-items:center;">
+  <div class="phone-label">Screen 1 — Battery Dashboard v2</div>
+  <div class="phone">
+
+    <!-- ── Top App Bar ──────────────────────────────────────────
+         DS: 72px, surface/inverse, 4px h-pad, no title
+    ─────────────────────────────────────────────────────────── -->
+    <div class="top-app-bar">
+      <button class="tab-btn-icon">
+        <svg width="24" height="24" fill="none"><path d="M15 18L9 12L15 6" stroke="var(--content-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="top-app-bar__spacer"></div>
+      <button class="tab-btn-icon" onclick="openSheet('notifSheet')">
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke="var(--content-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.73 21a2 2 0 01-3.46 0" stroke="var(--content-primary)" stroke-width="2" stroke-linecap="round"/></svg>
+        <span class="notif-dot"></span>
+      </button>
+    </div>
+
+    <!-- ── Header component ─────────────────────────────────────
+         DS: padding-top 8px, h-pad 24px, bg canvas/primary
+         title: Headings/Large 32px/700/40px, content/primary
+         subtext: Body/Medium 16px/500/24px, content/secondary
+         title–subtext gap: spacing-4 (16px)
+    ─────────────────────────────────────────────────────────── -->
+    <div class="page-header">
+      <div class="page-header__title">Batteries</div>
+      <div class="page-header__sub">Koramangala Warehouse</div>
+    </div>
+
+    <!-- ── Shift strip — Label/XSmall 12px/500, content/tertiary ── -->
+    <div class="shift-strip">
+      <div class="shift-strip__dot"></div>
+      <span class="shift-strip__text">Nirmal Debnath · Shift started 9 May, 9:00 AM</span>
+    </div>
+
+    <div class="screen">
+
+      <!-- ════════════════════════════════════════════════════════
+           Section: Ageing
+           spacing-12 (48px) from header to first section
+      ════════════════════════════════════════════════════════ -->
+      <div class="section-first">
+
+        <!-- Section Header: heading + subtext
+             heading: Headings/Small 20px/700/28px, content/primary
+             subtext: Label/Medium 16px/500/20px, content/secondary
+             heading–subtext gap: spacing-2 (8px)
+             gap to cards below: spacing-6 (24px) -->
+        <div class="section-header section-header--gap-cards">
+          <div class="section-header__heading">Ageing</div>
+          <div class="section-header__sub">Last audited today, 9:14 AM</div>
+        </div>
+
+        <!-- Bucket cards container: 24px h-pad so cards align with list items below -->
+        <div class="bucket-cards">
+
+          <!-- Red — Critical (>48h) -->
+          <div class="bucket-card bucket-card--alert" onclick="openBucketSheet('red')">
+            <div class="bucket-card__bar bucket-card__bar--negative"></div>
+            <div class="bucket-card__info">
+              <!-- label: Label/Medium700 16px/700 -->
+              <div class="bucket-card__label">Critical</div>
+              <!-- timeframe: Label/Small 14px/500 -->
+              <div class="bucket-card__timeframe">Idle &gt;48 hours</div>
+            </div>
+            <div class="bucket-card__trailing">
+              <!-- count: Display/Small 40px/700/52px — functional number, changes -->
+              <span class="bucket-card__count bucket-card__count--negative">3</span>
+              <svg width="20" height="20" fill="none"><path d="M8 5l5 5-5 5" stroke="var(--content-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+
+          <!-- Alert nudge — custom contextual note, shown when Critical > 0
+               text: Label/Small 14px/500, content/negative -->
+          <div class="alert-nudge">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="var(--content-negative)" stroke-width="2"/><path d="M12 8v4" stroke="var(--content-negative)" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1" fill="var(--content-negative)"/></svg>
+            <span class="alert-nudge__text">Alert QA to deploy these before picking from other racks</span>
+          </div>
+
+          <!-- Yellow — Ageing (24–48h) -->
+          <div class="bucket-card" onclick="openBucketSheet('yellow')">
+            <div class="bucket-card__bar bucket-card__bar--caution"></div>
+            <div class="bucket-card__info">
+              <div class="bucket-card__label">Ageing</div>
+              <div class="bucket-card__timeframe">Idle 24–48 hours</div>
+            </div>
+            <div class="bucket-card__trailing">
+              <span class="bucket-card__count bucket-card__count--caution">5</span>
+              <svg width="20" height="20" fill="none"><path d="M8 5l5 5-5 5" stroke="var(--content-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+
+          <!-- Green — Fresh (<24h) -->
+          <div class="bucket-card" onclick="openBucketSheet('green')">
+            <div class="bucket-card__bar bucket-card__bar--positive"></div>
+            <div class="bucket-card__info">
+              <div class="bucket-card__label">Fresh</div>
+              <div class="bucket-card__timeframe">Idle &lt;24 hours</div>
+            </div>
+            <div class="bucket-card__trailing">
+              <span class="bucket-card__count bucket-card__count--positive">14</span>
+              <svg width="20" height="20" fill="none"><path d="M8 5l5 5-5 5" stroke="var(--content-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+
+        </div><!-- /bucket-cards -->
+      </div><!-- /section-first -->
+
+      <!-- ════════════════════════════════════════════════════════
+           Section: Inventory
+           spacing-12 (48px) between sections
+      ════════════════════════════════════════════════════════ -->
+      <div class="section">
+
+        <!-- Section Header: heading only (list section, no subtext needed) -->
+        <!-- gap to list items: spacing-9 (36px) — DS rule for line items -->
+        <div class="section-header section-header--gap-list">
+          <div class="section-header__heading">Inventory</div>
+        </div>
+
+        <!-- List Items
+             DS: 72px height, 24px h-pad, headline Label/Medium content/primary
+             value Label/Medium content/secondary, divider 24px inset -->
+        <div class="list-item">
+          <div class="list-item__content">
+            <div class="list-item__headline">Total loose batteries</div>
+          </div>
+          <span class="list-item__value">24</span>
+        </div>
+
+        <!-- Faulty: clickable, trailing chevron -->
+        <div class="list-item list-item--clickable" onclick="openSheet('faultySheet')">
+          <div class="list-item__content">
+            <div class="list-item__headline">Faulty</div>
+          </div>
+          <div class="list-item__trailing">
+            <span class="list-item__value">2</span>
+            <svg width="20" height="20" fill="none"><path d="M8 5l5 5-5 5" stroke="var(--content-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+
+        <!-- Inside bikes: showDivider=false (last item) -->
+        <div class="list-item list-item--no-divider">
+          <div class="list-item__content">
+            <div class="list-item__headline">Inside bikes</div>
+          </div>
+          <span class="list-item__value">8</span>
+        </div>
+
+      </div><!-- /section -->
+    </div><!-- /screen -->
+
+    <!-- ── Bottom Bar ───────────────────────────────────────────
+         DS: Full-width buttons, 24px h-pad, spacing-9 (36px) bottom
+         Primary ALWAYS on top; Secondary below
+         No icons (not requested by designer)
+    ─────────────────────────────────────────────────────────── -->
+    <div class="bottom-bar">
+      <button class="btn-primary">Start audit</button>
+      <button class="btn-secondary" onclick="openSheet('markFaultySheet')">Mark battery as faulty</button>
+    </div>
+
+    <!-- ── Overlay — black #000 at 50% ── -->
+    <div class="overlay" id="overlay" onclick="closeAllSheets()"></div>
+
+    <!-- ── Sheet: Bucket Detail ── -->
+    <div class="sheet" id="bucketSheet">
+      <div class="sheet__handle"></div>
+      <div class="sheet__head">
+        <div>
+          <div class="sheet__title" id="bs-title"></div>
+          <div class="sheet__sub" id="bs-sub"></div>
+        </div>
+        <button class="sheet__close" onclick="closeAllSheets()">
+          <svg width="16" height="16" fill="none"><path d="M12 4L4 12M4 4l8 8" stroke="var(--content-primary)" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="sheet__body" id="bs-body"></div>
+    </div>
+
+    <!-- ── Sheet: Faulty List ── -->
+    <div class="sheet" id="faultySheet">
+      <div class="sheet__handle"></div>
+      <div class="sheet__head">
+        <div>
+          <div class="sheet__title">Faulty batteries</div>
+          <div class="sheet__sub">2 batteries · pending dispatch to Yuma</div>
+        </div>
+        <button class="sheet__close" onclick="closeAllSheets()">
+          <svg width="16" height="16" fill="none"><path d="M12 4L4 12M4 4l8 8" stroke="var(--content-primary)" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="sheet__body">
+        <div class="bat-row">
+          <div class="bat-row__bar bat-row__bar--negative"></div>
+          <div class="bat-row__main">
+            <div class="bat-row__id">YA006234</div>
+            <div class="bat-row__loc">Bay 3, Shelf 1 · Marked 2 days ago</div>
+          </div>
+          <span class="status-badge status-badge--faulty">Faulty</span>
+        </div>
+        <div class="bat-row">
+          <div class="bat-row__bar bat-row__bar--negative"></div>
+          <div class="bat-row__main">
+            <div class="bat-row__id">YA003315</div>
+            <div class="bat-row__loc">Bay 5, Shelf 2 · Marked yesterday</div>
+          </div>
+          <span class="status-badge status-badge--faulty">Faulty</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Sheet: Mark Faulty ── -->
+    <div class="sheet" id="markFaultySheet">
+      <div class="sheet__handle"></div>
+      <div class="sheet__head">
+        <div>
+          <div class="sheet__title">Mark as faulty</div>
+          <div class="sheet__sub">Scan battery QR or enter ID manually</div>
+        </div>
+        <button class="sheet__close" onclick="closeAllSheets()">
+          <svg width="16" height="16" fill="none"><path d="M12 4L4 12M4 4l8 8" stroke="var(--content-primary)" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="sheet__body">
+        <div class="mf-input-row">
+          <input class="mf-input" type="text" id="mfInput" placeholder="e.g. YA002699">
+          <button class="mf-submit" onclick="submitFaulty()">Mark faulty</button>
+        </div>
+        <div class="mf-confirm" id="mfConfirm">
+          <div class="mf-confirm__title" id="mfConfirmTitle"></div>
+          <div class="mf-confirm__sub">Battery logged. Move it to the faulty rack.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Sheet: Notifications ── -->
+    <div class="sheet" id="notifSheet">
+      <div class="sheet__handle"></div>
+      <div class="sheet__head">
+        <div><div class="sheet__title">Notifications</div></div>
+        <button class="sheet__close" onclick="closeAllSheets()">
+          <svg width="16" height="16" fill="none"><path d="M12 4L4 12M4 4l8 8" stroke="var(--content-primary)" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="sheet__body">
+        <div class="notif-item">
+          <div class="notif-icon notif-icon--negative">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="var(--content-negative)" stroke-width="2"/><path d="M12 8v4" stroke="var(--content-negative)" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1" fill="var(--content-negative)"/></svg>
+          </div>
+          <div class="notif-body">
+            <div class="notif-body__title">3 batteries critically aged</div>
+            <div class="notif-body__sub">YA008102, YA006234 and 1 more have been idle &gt;48h. Alert QA to prioritise these for RTD deployment.</div>
+            <div class="notif-body__time">Today, 9:00 AM</div>
+          </div>
+        </div>
+        <div class="notif-item">
+          <div class="notif-icon notif-icon--caution">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="var(--content-caution)" stroke-width="2"/><path d="M12 8v4" stroke="var(--content-caution)" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1" fill="var(--content-caution)"/></svg>
+          </div>
+          <div class="notif-body">
+            <div class="notif-body__title">Audit not completed</div>
+            <div class="notif-body__sub">No audit has been run today. Battery counts may be inaccurate until one is completed.</div>
+            <div class="notif-body__time">Today, 9:00 AM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /phone -->
+</div>
+
+<script>
+const buckets = {
+  red: {
+    title:'Critical batteries', sub:'3 batteries · >48h idle', sev:'negative',
+    items:[
+      {id:'YA008102',loc:'Bay 4, Shelf 2',dur:'61h 30m',state:'idle'},
+      {id:'YA006234',loc:'Bay 3, Shelf 1',dur:'52h 07m',state:'faulty'},
+      {id:'YA009001',loc:'Bay 1, Shelf 3',dur:'49h 15m',state:'charged'},
+    ]
+  },
+  yellow: {
+    title:'Ageing batteries', sub:'5 batteries · 24–48h idle', sev:'caution',
+    items:[
+      {id:'YA003812',loc:'Bay 1, Shelf 2',dur:'31h 14m',state:'idle'},
+      {id:'YA008001',loc:'Bay 4, Shelf 1',dur:'29h 45m',state:'charged'},
+      {id:'YA005210',loc:'Bay 2, Shelf 3',dur:'27h 03m',state:'charged'},
+      {id:'YA007110',loc:'Bay 3, Shelf 3',dur:'25h 40m',state:'idle'},
+      {id:'YA004890',loc:'Bay 6, Shelf 1',dur:'24h 22m',state:'discharging'},
+    ]
+  },
+  green: {
+    title:'Fresh batteries', sub:'14 batteries · <24h idle', sev:'positive',
+    items:[
+      {id:'YA002699',loc:'Bay 1, Shelf 1',dur:'12h 00m',state:'charged'},
+      {id:'YA004521',loc:'Bay 2, Shelf 1',dur:'10h 30m',state:'charged'},
+      {id:'YA005103',loc:'Bay 2, Shelf 2',dur:'8h 15m', state:'discharging'},
+      {id:'YA007890',loc:'Bay 3, Shelf 2',dur:'6h 45m', state:'charged'},
+      {id:'YA010001',loc:'Bay 5, Shelf 1',dur:'5h 10m', state:'charged'},
+      {id:'YA010002',loc:'Bay 5, Shelf 2',dur:'4h 55m', state:'idle'},
+      {id:'YA010003',loc:'Bay 5, Shelf 3',dur:'3h 30m', state:'charged'},
+      {id:'YA010004',loc:'Bay 6, Shelf 2',dur:'2h 45m', state:'idle'},
+      {id:'YA010005',loc:'Bay 6, Shelf 3',dur:'2h 10m', state:'charged'},
+      {id:'YA010006',loc:'Bay 7, Shelf 1',dur:'1h 55m', state:'charged'},
+      {id:'YA010007',loc:'Bay 7, Shelf 2',dur:'1h 30m', state:'idle'},
+      {id:'YA010008',loc:'Bay 7, Shelf 3',dur:'0h 50m', state:'charged'},
+      {id:'YA010009',loc:'Bay 8, Shelf 1',dur:'0h 35m', state:'charged'},
+      {id:'YA010010',loc:'Bay 8, Shelf 2',dur:'0h 20m', state:'idle'},
+    ]
+  }
+};
+
+const badge = {
+  charged:    '<span class="status-badge status-badge--charged">Charged</span>',
+  idle:       '<span class="status-badge status-badge--idle">Idle</span>',
+  discharging:'<span class="status-badge status-badge--discharging">Discharging</span>',
+  faulty:     '<span class="status-badge status-badge--faulty">Faulty</span>',
+};
+
+function openBucketSheet(type) {
+  const d = buckets[type];
+  document.getElementById('bs-title').textContent = d.title;
+  document.getElementById('bs-sub').textContent = d.sub;
+  document.getElementById('bs-body').innerHTML = d.items.map(b =>
+    `<div class="bat-row">
+      <div class="bat-row__bar bat-row__bar--${d.sev}"></div>
+      <div class="bat-row__main">
+        <div class="bat-row__id">${b.id}</div>
+        <div class="bat-row__loc">${b.loc}</div>
+      </div>
+      ${badge[b.state]}
+      <span class="bat-row__dur bat-row__dur--${d.sev}">⏱ ${b.dur}</span>
+    </div>`
+  ).join('');
+  openSheet('bucketSheet');
+}
+
+function submitFaulty() {
+  const id = document.getElementById('mfInput').value.trim() || 'Battery';
+  document.getElementById('mfConfirmTitle').textContent = `${id} marked as faulty`;
+  const el = document.getElementById('mfConfirm');
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; document.getElementById('mfInput').value = ''; }, 2800);
+}
+
+function openSheet(id) {
+  document.getElementById('overlay').classList.add('vis');
+  const s = document.getElementById(id);
+  s.classList.remove('hiding');
+  void s.offsetWidth;
+  s.classList.add('vis');
+}
+
+function closeAllSheets() {
+  ['bucketSheet','faultySheet','markFaultySheet','notifSheet'].forEach(id => {
+    const s = document.getElementById(id);
+    s.classList.remove('vis');
+    s.classList.add('hiding');
+    setTimeout(() => s.classList.remove('hiding'), 220);
+  });
+  document.getElementById('overlay').classList.remove('vis');
+}
+</script>
+</body>
+</html>

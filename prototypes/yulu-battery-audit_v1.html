@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yulu — Battery Audit</title>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@700,500&display=swap" rel="stylesheet">
+<style>
+/* ─── Design System Tokens ─── */
+:root {
+  --color-white:        #FFFFFF;
+  --color-grey-100:     #F7F7F7;
+  --color-grey-200:     #E8E8E8;
+  --color-grey-300:     #DDDDDD;
+  --color-grey-400:     #B0B0B0;
+  --color-grey-500:     #919191;
+  --color-grey-600:     #717171;
+  --color-grey-900:     #222222;
+  --color-green-500:    #00654F;
+  --color-orange-500:   #E07912;
+  --color-red-500:      #C13515;
+  --color-yulu-blue-500:#30CDFD;
+  --content-primary:    var(--color-grey-900);
+  --content-secondary:  var(--color-grey-600);
+  --content-tertiary:   var(--color-grey-500);
+  --content-disabled:   var(--color-grey-400);
+  --content-inverse:    var(--color-white);
+  --content-positive:   var(--color-green-500);
+  --content-caution:    var(--color-orange-500);
+  --content-negative:   var(--color-red-500);
+  --surface-primary:    var(--color-grey-900);
+  --surface-secondary:  var(--color-grey-100);
+  --surface-disabled:   var(--color-grey-300);
+  --surface-inverse:    var(--color-white);
+  --surface-positive:   var(--color-green-500);
+  --surface-caution:    var(--color-orange-500);
+  --surface-negative:   var(--color-red-500);
+  --border-primary:     var(--color-grey-200);
+  --border-secondary:   var(--color-grey-400);
+  --border-selected:    var(--color-grey-900);
+  --border-positive:    var(--color-green-500);
+  --border-caution:     var(--color-orange-500);
+  --border-negative:    var(--color-red-500);
+  --canvas-primary:     var(--color-white);
+  --canvas-inverse:     var(--color-grey-900);
+  --font: 'Satoshi', sans-serif;
+  --s1:4px; --s2:8px; --s4:16px; --s6:24px; --s9:36px; --s12:48px; --s16:64px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);background:#E0E0E0;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px 64px;gap:24px;flex-wrap:wrap;}
+
+/* ─── Phone Shell ─── */
+.phone{width:393px;height:852px;border-radius:48px;box-shadow:0 24px 80px rgba(0,0,0,0.15),0 2px 8px rgba(0,0,0,0.06);overflow:hidden;background:var(--canvas-primary);position:relative;display:flex;flex-direction:column;flex-shrink:0;}
+.phone-label{text-align:center;margin-bottom:10px;font-family:var(--font);font-size:12px;font-weight:700;color:#888;letter-spacing:.06em;text-transform:uppercase;width:393px;}
+
+/* ─── TOP APP BAR ───────────────────────────────────────────────
+   DS: height 72px, surface/inverse bg, h-pad 4px, no title (Page Header present)
+──────────────────────────────────────────────────────────────── */
+.top-app-bar{height:72px;background:var(--surface-inverse);display:flex;align-items:center;padding:0 4px;flex-shrink:0;border-bottom:1px solid var(--border-primary);}
+.top-app-bar__btn{width:48px;height:48px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:12px;transition:background .15s;border:none;background:none;}
+.top-app-bar__btn:hover{background:var(--surface-secondary);}
+.top-app-bar__spacer{flex:1;}
+
+/* ─── PAGE HEADER ───────────────────────────────────────────────
+   DS: padding-top 8px, h-pad 24px, canvas/primary bg
+   title = Headings/Large: 32px/700/40px lh, content/primary
+   subtext = Body/Medium: 16px/500/24px lh, content/secondary
+   title–subtext gap = 16px (spacing-4)
+──────────────────────────────────────────────────────────────── */
+.page-header{padding:8px var(--s6) 0;background:var(--canvas-primary);}
+.page-header__title{font-size:32px;font-weight:700;line-height:40px;color:var(--content-primary);}
+.page-header__sub{font-size:16px;font-weight:500;line-height:24px;color:var(--content-secondary);margin-top:var(--s4);}
+
+/* Screen scroll */
+.screen{flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;padding-bottom:120px;}
+.screen::-webkit-scrollbar{display:none;}
+
+/* Spacing rhythm — DS: Page Header → first content = 48px (spacing-12), between sections = 48px */
+.section-first{padding:var(--s12) var(--s6) 0;}
+.section{padding:var(--s12) var(--s6) 0;}
+.section-inner{padding:var(--s6) var(--s6) 0;}
+
+/* ─── SECTION HEADER ────────────────────────────────────────────
+   DS: Headings/Small (20px/700/28px), content/primary, h-pad 24px built in
+   subtext = Label/Medium (16px/500), content/secondary
+──────────────────────────────────────────────────────────────── */
+.section-header{padding:0 var(--s6);}
+.section-header--mb-line{margin-bottom:var(--s2);}
+.section-header--mb-list{margin-bottom:var(--s9);}
+.section-header__heading{font-size:20px;font-weight:700;line-height:28px;color:var(--content-primary);}
+.section-header__subtext{font-size:16px;font-weight:500;line-height:20px;color:var(--content-secondary);margin-top:var(--s2);}
+
+/* ─── LIST ITEM ─────────────────────────────────────────────────
+   DS: height 72px (no sub), 92px (with sub), h-pad 24px, v-pad 24px
+   headline = Label/Medium: 16px/500/20px lh, content/primary
+   subheading = Label/Small: 14px/500/16px lh, content/secondary
+   value = Label/Medium: 16px/500, content/secondary
+   divider: 1px border/primary, 24px inset left + right
+──────────────────────────────────────────────────────────────── */
+.list-item{display:flex;align-items:center;min-height:72px;padding:var(--s6);gap:var(--s4);position:relative;transition:background .12s;cursor:default;}
+.list-item--clickable{cursor:pointer;}
+.list-item--clickable:hover{background:var(--surface-secondary);}
+.list-item--with-sub{min-height:92px;align-items:flex-start;}
+.list-item::after{content:'';position:absolute;bottom:0;left:var(--s6);right:var(--s6);height:1px;background:var(--border-primary);}
+.list-item--no-divider::after{display:none;}
+.list-item__severity{position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 2px 2px 0;}
+.list-item__severity--caution{background:var(--surface-caution);}
+.list-item__severity--negative{background:var(--surface-negative);}
+.list-item__severity--positive{background:var(--surface-positive);}
+.list-item__content{flex:1;min-width:0;}
+.list-item__headline{font-size:16px;font-weight:500;line-height:20px;color:var(--content-primary);}
+.list-item__headline--tap{cursor:pointer;}
+.list-item__headline--tap:hover{text-decoration:underline;}
+.list-item__subheading{font-size:14px;font-weight:500;line-height:16px;color:var(--content-secondary);margin-top:var(--s2);}
+.list-item__age{font-size:12px;font-weight:700;line-height:16px;margin-top:var(--s2);}
+.list-item__age--caution{color:var(--content-caution);}
+.list-item__age--negative{color:var(--content-negative);}
+.list-item__trailing{display:flex;align-items:center;gap:var(--s2);flex-shrink:0;}
+.list-item__value{font-size:16px;font-weight:500;line-height:20px;color:var(--content-secondary);}
+
+/* ─── STATUS BADGE (custom — read-only state indicator, not a DS filter chip) ─── */
+.status-badge{height:24px;padding:0 var(--s2);border-radius:100px;font-size:11px;font-weight:700;line-height:24px;white-space:nowrap;display:inline-block;}
+.status-badge--charged{background:rgba(0,101,79,.1);color:var(--content-positive);}
+.status-badge--idle{background:var(--surface-secondary);color:var(--content-secondary);}
+.status-badge--discharging{background:rgba(224,121,18,.1);color:var(--content-caution);}
+.status-badge--faulty{background:rgba(193,53,21,.1);color:var(--content-negative);}
+.status-badge--extra{background:rgba(224,121,18,.1);color:var(--content-caution);}
+.status-badge--missing{background:rgba(193,53,21,.1);color:var(--content-negative);}
+
+/* Ready Pool checkbox (custom) */
+.rp-check{width:24px;height:24px;border-radius:6px;border:1.5px solid var(--border-secondary);background:var(--canvas-primary);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,border-color .15s;}
+.rp-check.checked{background:var(--surface-positive);border-color:var(--border-positive);}
+.rp-check svg{display:none;}
+.rp-check.checked svg{display:block;}
+
+/* ─── TABS ──────────────────────────────────────────────────────
+   DS: height 56px, h-pad 16px per tab, Body/Medium (16px/500/24px lh)
+   selected color = content/primary, unselected = content/secondary
+   indicator = 2px, border-radius 1px, color content/primary
+   bottom divider = 1px border/primary
+   NOTE: tab label weight is ALWAYS 500 — DS does not bold active tab
+──────────────────────────────────────────────────────────────── */
+.tabs{height:56px;display:flex;align-items:stretch;border-bottom:1px solid var(--border-primary);flex-shrink:0;overflow-x:auto;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab-btn{font-family:var(--font);font-size:16px;font-weight:500;line-height:24px;color:var(--content-secondary);background:none;border:none;padding:0 var(--s4);cursor:pointer;position:relative;white-space:nowrap;display:flex;align-items:center;gap:var(--s1);transition:color .15s;}
+.tab-btn.active{color:var(--content-primary);}
+.tab-btn.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--content-primary);border-radius:1px;}
+.tab-badge{background:var(--surface-caution);color:var(--content-inverse);font-size:10px;font-weight:700;line-height:1;padding:2px 5px;border-radius:100px;min-width:16px;text-align:center;}
+
+/* Tab panels */
+.tab-panel{display:none;flex:1;}
+.tab-panel.active{display:flex;flex-direction:column;}
+.tab-scroller{flex:1;overflow-y:auto;}
+.tab-scroller::-webkit-scrollbar{display:none;}
+
+/* Summary count row (custom) */
+.summary-row{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s2);padding:var(--s6) var(--s6) 0;}
+.summary-cell{background:var(--surface-secondary);border-radius:12px;padding:var(--s4) var(--s2);text-align:center;cursor:pointer;transition:background .15s,border .15s;border:1.5px solid transparent;}
+.summary-cell:hover{background:#EBEBEB;}
+.summary-cell.active{border-color:var(--border-secondary);background:var(--canvas-primary);}
+.summary-cell__num{font-size:20px;font-weight:700;line-height:28px;color:var(--content-primary);}
+.summary-cell__num--caution{color:var(--content-caution);}
+.summary-cell__label{font-size:11px;font-weight:500;line-height:16px;color:var(--content-secondary);margin-top:2px;}
+
+/* ─── OVERLAY — DS: black #000 at 50%, fills entire screen ─── */
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);z-index:10;opacity:0;pointer-events:none;transition:opacity .24s;}
+.overlay.vis{opacity:1;pointer-events:all;}
+
+/* Bottom sheet (custom) */
+.sheet{position:absolute;bottom:0;left:0;right:0;background:var(--canvas-primary);border-radius:24px 24px 0 0;z-index:11;box-shadow:0 -4px 24px rgba(0,0,0,.1);transform:translateY(100%);transition:transform .28s cubic-bezier(.34,1.1,.64,1);}
+.sheet.vis{transform:translateY(0);}
+.sheet.hiding{transform:translateY(100%);transition:transform .2s ease-in;}
+.sheet__handle{width:36px;height:4px;background:var(--border-primary);border-radius:2px;margin:var(--s4) auto var(--s2);}
+.sheet__head{padding:var(--s2) var(--s6) var(--s4);display:flex;align-items:flex-start;justify-content:space-between;}
+.sheet__title{font-size:20px;font-weight:700;line-height:28px;color:var(--content-primary);}
+.sheet__sub{font-size:14px;font-weight:500;line-height:16px;color:var(--content-secondary);margin-top:var(--s2);}
+.sheet__close{width:32px;height:32px;border-radius:50%;background:var(--surface-secondary);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px;}
+.sheet__body{padding:0 var(--s6) var(--s12);max-height:440px;overflow-y:auto;}
+.sheet__body::-webkit-scrollbar{display:none;}
+.sheet__field{padding:var(--s4) 0;border-bottom:1px solid var(--border-primary);}
+.sheet__field:last-child{border-bottom:none;}
+.sheet__field-label{font-size:12px;font-weight:500;line-height:16px;color:var(--content-tertiary);margin-bottom:var(--s1);}
+.sheet__field-value{font-size:16px;font-weight:500;line-height:20px;color:var(--content-primary);}
+.sheet__field-row{display:flex;align-items:center;justify-content:space-between;}
+
+/* ─── BUTTON ────────────────────────────────────────────────────
+   DS: height 64px, full pill, Label/Medium700 (16px/700/20px lh)
+   Primary: surface/primary bg, content/inverse text
+   Secondary: surface/secondary bg, content/primary text
+   Disabled: surface/disabled bg, content/disabled text
+──────────────────────────────────────────────────────────────── */
+.btn-primary{width:100%;height:var(--s16);border-radius:100px;border:none;background:var(--surface-primary);color:var(--content-inverse);font-family:var(--font);font-size:16px;font-weight:700;line-height:20px;cursor:pointer;transition:opacity .15s,transform .1s;display:flex;align-items:center;justify-content:center;}
+.btn-primary:hover:not(:disabled){opacity:.88;}
+.btn-primary:active:not(:disabled){transform:scale(.98);}
+.btn-primary:disabled{background:var(--surface-disabled);color:var(--content-disabled);cursor:default;}
+.btn-secondary{width:100%;height:var(--s16);border-radius:100px;border:none;background:var(--surface-secondary);color:var(--content-primary);font-family:var(--font);font-size:16px;font-weight:700;line-height:20px;cursor:pointer;transition:opacity .15s;}
+.btn-secondary:hover{opacity:.8;}
+
+/* Bottom bar */
+.bottom-bar{position:absolute;bottom:0;left:0;right:0;padding:var(--s4) var(--s6) var(--s9);background:linear-gradient(to bottom,transparent,var(--canvas-primary) 28%);z-index:5;display:flex;flex-direction:column;gap:var(--s2);}
+
+/* Ready Pool bar (custom) */
+.rp-bar{height:48px;border-radius:100px;background:var(--surface-secondary);border:1.5px solid var(--border-primary);display:flex;align-items:center;padding:0 var(--s6);cursor:pointer;transition:background .15s;gap:var(--s4);}
+.rp-bar:hover{background:#EBEBEB;}
+.rp-bar__label{font-size:14px;font-weight:700;color:var(--content-primary);flex:1;}
+.rp-bar__count{font-size:14px;font-weight:700;color:var(--content-positive);}
+
+/* Stat card (Screen 1, custom) */
+.stat-card{background:var(--surface-secondary);border-radius:16px;padding:var(--s4) var(--s6);display:flex;align-items:center;gap:var(--s4);margin-bottom:var(--s2);}
+.stat-card__icon{width:40px;height:40px;border-radius:8px;background:var(--canvas-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.stat-card__label{font-size:14px;font-weight:500;color:var(--content-secondary);}
+.stat-card__value{font-size:20px;font-weight:700;color:var(--content-primary);}
+.stat-card__value--caution{color:var(--content-caution);}
+.stat-card__value--negative{color:var(--content-negative);}
+
+/* Location check (Screen 1, custom) */
+.loc-check{display:flex;align-items:center;gap:var(--s4);padding:var(--s4) var(--s6);border:1.5px solid var(--border-positive);border-radius:16px;margin-bottom:var(--s2);}
+.loc-dot{width:10px;height:10px;border-radius:50%;background:var(--surface-positive);flex-shrink:0;}
+
+/* Screen 2 scanner */
+.prog-section{padding:var(--s4) var(--s6) 0;}
+.prog-label{font-size:16px;font-weight:700;color:var(--content-primary);display:flex;justify-content:space-between;margin-bottom:var(--s2);}
+.prog-frac{font-weight:500;color:var(--content-secondary);}
+.prog-track{height:4px;background:var(--border-primary);border-radius:4px;overflow:hidden;}
+.prog-fill{height:100%;background:var(--surface-primary);border-radius:4px;transition:width .4s cubic-bezier(.4,0,.2,1);}
+.vf-section{padding:var(--s6);display:flex;flex-direction:column;align-items:center;}
+.vf{width:100%;max-width:310px;height:210px;background:#0E0E0E;border-radius:16px;position:relative;overflow:hidden;}
+.corner{position:absolute;width:24px;height:24px;}
+.corner--tl{top:12px;left:12px;border-top:3px solid #fff;border-left:3px solid #fff;border-radius:3px 0 0 0;}
+.corner--tr{top:12px;right:12px;border-top:3px solid #fff;border-right:3px solid #fff;border-radius:0 3px 0 0;}
+.corner--bl{bottom:12px;left:12px;border-bottom:3px solid #fff;border-left:3px solid #fff;border-radius:0 0 0 3px;}
+.corner--br{bottom:12px;right:12px;border-bottom:3px solid #fff;border-right:3px solid #fff;border-radius:0 0 3px 0;}
+.scan-line{position:absolute;left:12px;right:12px;height:2px;background:linear-gradient(90deg,transparent,var(--color-yulu-blue-500),transparent);animation:scanLoop 1.8s ease-in-out infinite;}
+@keyframes scanLoop{0%{top:20px;opacity:0;}10%{opacity:.9;}90%{opacity:.9;}100%{top:calc(100% - 20px);opacity:0;}}
+.vf::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.03)1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03)1px,transparent 1px);background-size:20px 20px;}
+.vf::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,.55)100%);pointer-events:none;}
+.vf-hint{margin-top:var(--s2);font-size:14px;font-weight:500;color:var(--content-tertiary);}
+.bat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2);}
+.bat-btn{height:48px;border-radius:100px;border:1px solid var(--border-primary);background:var(--surface-secondary);font-family:var(--font);font-size:13px;font-weight:500;color:var(--content-primary);cursor:pointer;transition:background .15s,transform .1s;overflow:hidden;position:relative;}
+.bat-btn:hover:not(:disabled){background:#EBEBEB;transform:scale(1.02);}
+.bat-btn:active:not(:disabled){transform:scale(.97);}
+.bat-btn.scanned{opacity:.45;cursor:default;}
+
+/* Scan card */
+.scan-card{position:absolute;bottom:0;left:0;right:0;background:var(--canvas-primary);border-radius:24px 24px 0 0;padding:var(--s6);z-index:11;box-shadow:0 -4px 24px rgba(0,0,0,.08);transform:translateY(100%);transition:transform .24s cubic-bezier(.34,1.1,.64,1);}
+.scan-card.vis{transform:translateY(0);}
+.scan-card.hiding{transform:translateY(100%);transition:transform .2s ease-in;}
+.sc-handle{width:36px;height:4px;background:var(--border-primary);border-radius:2px;margin:0 auto var(--s6);}
+.sc-row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--s1);}
+.sc-id{font-size:16px;font-weight:500;color:var(--content-primary);}
+.sc-status{font-size:14px;font-weight:500;color:var(--content-positive);margin-bottom:var(--s4);}
+.age-badge{display:inline-flex;align-items:center;padding:var(--s1) 12px;border-radius:100px;font-size:12px;font-weight:500;}
+.age-badge--caution{background:rgba(224,121,18,.12);border:1px solid var(--border-caution);color:var(--content-caution);}
+.age-badge--negative{background:rgba(193,53,21,.12);border:1px solid var(--border-negative);color:var(--content-negative);}
+
+/* Empty state — DS: Headings/Medium (24px/700/28px) used ONLY in empty states */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:var(--s12) var(--s6);gap:var(--s4);flex:1;}
+.empty__icon{width:64px;height:64px;border-radius:20px;background:var(--surface-secondary);display:flex;align-items:center;justify-content:center;}
+.empty__title{font-size:24px;font-weight:700;line-height:28px;color:var(--content-primary);text-align:center;}
+.empty__sub{font-size:14px;font-weight:500;line-height:20px;color:var(--content-secondary);text-align:center;}
+
+/* Ready pool sheet rows */
+.rp-row{display:flex;align-items:center;padding:var(--s4) 0;border-bottom:1px solid var(--border-primary);gap:var(--s4);}
+.rp-row:last-child{border-bottom:none;}
+.rp-row__main{flex:1;min-width:0;}
+.rp-row__id{font-size:16px;font-weight:500;line-height:20px;color:var(--content-primary);}
+.rp-row__meta{font-size:12px;font-weight:500;line-height:16px;color:var(--content-secondary);margin-top:2px;}
+.rp-row__remove{width:32px;height:32px;border-radius:50%;background:var(--surface-secondary);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;}
+.rp-row__remove:hover{background:#EBEBEB;}
+
+/* Warning sheet */
+.warn-badge{background:rgba(224,121,18,.1);border:1px solid var(--border-caution);border-radius:12px;padding:var(--s4) var(--s6);margin:0 var(--s6) var(--s6);display:flex;align-items:center;gap:var(--s4);}
+.warn-badge__text{font-size:14px;font-weight:500;color:var(--content-caution);}
+.warn-btns{padding:0 var(--s6) var(--s12);display:flex;flex-direction:column;gap:var(--s2);}
+
+/* Toggle */
+.toggle{position:relative;width:44px;height:26px;flex-shrink:0;cursor:pointer;}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle__track{position:absolute;inset:0;background:var(--surface-disabled);border-radius:100px;transition:background .2s;}
+.toggle input:checked+.toggle__track{background:var(--surface-positive);}
+.toggle__thumb{position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:transform .2s;}
+.toggle input:checked~.toggle__thumb{transform:translateX(18px);}
+
+/* Missing banner (Screen 4) */
+.missing-banner{display:flex;align-items:center;gap:var(--s2);padding:var(--s4) var(--s6);background:rgba(193,53,21,.06);border-bottom:1px solid var(--border-primary);}
+.missing-banner__text{font-size:14px;font-weight:700;color:var(--content-negative);}
+.missing-banner__sub{font-size:12px;font-weight:500;color:var(--content-secondary);margin-top:2px;}
+
+/* Ripple */
+.ripple{position:absolute;border-radius:50%;background:rgba(0,0,0,.08);transform:scale(0);animation:rippleA .5s linear;pointer-events:none;}
+@keyframes rippleA{to{transform:scale(4);opacity:0;}}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     SCREEN 1 — Location Validation
+════════════════════════════════════════════════════════ -->
+<div style="display:flex;flex-direction:column;align-items:center;">
+  <div class="phone-label">Screen 1 — Location Validation</div>
+  <div class="phone">
+    <!-- Top App Bar: title slot EMPTY — DS rule when Page Header is present -->
+    <div class="top-app-bar">
+      <button class="top-app-bar__btn"><svg width="24" height="24" fill="none"><path d="M15 18L9 12L15 6" stroke="var(--content-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="top-app-bar__spacer"></div>
+    </div>
+    <!-- Page Header: title + subtext, gap 16px -->
+    <div class="page-header">
+      <div class="page-header__title">Location check</div>
+      <div class="page-header__sub">Confirm you're at the right warehouse</div>
+    </div>
+    <div class="screen">
+      <!-- First section: 48px from Page Header -->
+      <div class="section-first">
+        <div class="loc-check">
+          <div class="loc-dot"></div>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--content-positive);">Location verified</div>
+            <div style="font-size:13px;font-weight:500;color:var(--content-positive);margin-top:2px;">Koramangala Warehouse, Bangalore</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card__icon"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5" fill="var(--content-secondary)"/><rect x="14" y="3" width="7" height="7" rx="1.5" fill="var(--content-secondary)"/><rect x="3" y="14" width="7" height="7" rx="1.5" fill="var(--content-secondary)"/><rect x="14" y="14" width="7" height="7" rx="1.5" fill="var(--content-secondary)"/></svg></div>
+          <div><div class="stat-card__label">Total batteries to audit</div><div class="stat-card__value">142</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card__icon"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="var(--content-caution)" stroke-width="2"/><path d="M12 8v4" stroke="var(--content-caution)" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1" fill="var(--content-caution)"/></svg></div>
+          <div><div class="stat-card__label">High-ageing batteries (&gt;24h)</div><div class="stat-card__value stat-card__value--caution">8</div></div>
+        </div>
+        <div class="stat-card" style="border:1.5px solid rgba(193,53,21,.25);">
+          <div class="stat-card__icon" style="background:rgba(193,53,21,.08);"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="var(--content-negative)" stroke-width="2"/><path d="M12 9v4M12 17h.01" stroke="var(--content-negative)" stroke-width="2" stroke-linecap="round"/></svg></div>
+          <div><div class="stat-card__label">Unresolved from last shift</div><div class="stat-card__value stat-card__value--negative">2 missing</div></div>
+        </div>
+      </div>
+      <!-- Shift details: Section Header + List Items with inset dividers -->
+      <div class="section">
+        <div class="section-header section-header--mb-list"><div class="section-header__heading">Shift details</div></div>
+        <div class="list-item"><div class="list-item__content"><div class="list-item__headline">IA Name</div></div><div class="list-item__value">Nirmal Debnath</div></div>
+        <div class="list-item"><div class="list-item__content"><div class="list-item__headline">Shift start</div></div><div class="list-item__value">9 May, 9:00 AM</div></div>
+        <div class="list-item list-item--no-divider"><div class="list-item__content"><div class="list-item__headline">Zone</div></div><div class="list-item__value">Koramangala</div></div>
+      </div>
+    </div>
+    <div class="bottom-bar"><button class="btn-primary">Start audit</button></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     SCREEN 2 — Scanner
+════════════════════════════════════════════════════════ -->
+<div style="display:flex;flex-direction:column;align-items:center;">
+  <div class="phone-label">Screen 2 — Scanner</div>
+  <div class="phone" id="s2">
+    <div class="top-app-bar">
+      <button class="top-app-bar__btn"><svg width="24" height="24" fill="none"><path d="M15 18L9 12L15 6" stroke="var(--content-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="top-app-bar__spacer"></div>
+    </div>
+    <!-- Page Header: subtext only (no title, scanner context is clear) -->
+    <div class="page-header">
+      <div class="page-header__sub">Scan all warehouse batteries one by one</div>
+    </div>
+    <div class="screen">
+      <div class="prog-section">
+        <div class="prog-label"><span>Scanned</span><span class="prog-frac"><span id="s2count">0</span> / 6</span></div>
+        <div class="prog-track"><div class="prog-fill" id="s2fill"></div></div>
+      </div>
+      <div class="vf-section">
+        <div class="vf">
+          <div class="corner corner--tl"></div><div class="corner corner--tr"></div>
+          <div class="corner corner--bl"></div><div class="corner corner--br"></div>
+          <div class="scan-line"></div>
+        </div>
+        <p class="vf-hint">Point camera at battery QR code</p>
+      </div>
+      <div class="section-inner">
+        <div class="section-header section-header--mb-line"><div class="section-header__subtext">Tap to simulate scan</div></div>
+        <div class="bat-grid">
+          <button class="bat-btn" data-id="YA002699" data-age="none" onclick="doScan(this,event)">YA002699</button>
+          <button class="bat-btn" data-id="YA003812" data-age="caution" data-dur="31h 14m" data-src="In since bike arrival" onclick="doScan(this,event)">YA003812</button>
+          <button class="bat-btn" data-id="YA004521" data-age="none" onclick="doScan(this,event)">YA004521</button>
+          <button class="bat-btn" data-id="YA005103" data-age="none" onclick="doScan(this,event)">YA005103</button>
+          <button class="bat-btn" data-id="YA006234" data-age="negative" data-dur="52h 07m" data-src="In since bike arrival" onclick="doScan(this,event)">YA006234</button>
+          <button class="bat-btn" data-id="YA007890" data-age="none" onclick="doScan(this,event)">YA007890</button>
+        </div>
+      </div>
+    </div>
+    <div class="overlay" id="s2ov" onclick="dismissScan()"></div>
+    <div class="scan-card" id="s2card">
+      <div class="sc-handle"></div>
+      <div class="sc-row1">
+        <span class="sc-id" id="s2cid">YA002699</span>
+        <svg width="24" height="24" fill="none"><circle cx="12" cy="12" r="11" fill="var(--surface-positive)" opacity=".12"/><path d="M7 12.5L10.5 16L17 9" stroke="var(--content-positive)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="sc-status">Scanned ✓</div>
+      <div id="s2badge"></div>
+    </div>
+    <div class="bottom-bar"><button class="btn-primary" id="s2endBtn" disabled onclick="s2End()">End battery audit</button></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     SCREEN 3 — Battery List
+════════════════════════════════════════════════════════ -->
+<div style="display:flex;flex-direction:column;align-items:center;">
+  <div class="phone-label">Screen 3 — Battery List</div>
+  <div class="phone" id="s3">
+    <div class="top-app-bar">
+      <button class="top-app-bar__btn"><svg width="24" height="24" fill="none"><path d="M15 18L9 12L15 6" stroke="var(--content-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="top-app-bar__spacer"></div>
+    </div>
+    <div class="page-header"><div class="page-header__title">Battery list</div></div>
+
+    <!-- Summary count row -->
+    <div class="summary-row">
+      <div class="summary-cell" id="sc-rem" onclick="switchTab('remaining')"><div class="summary-cell__num">6</div><div class="summary-cell__label">Remaining</div></div>
+      <div class="summary-cell active" id="sc-aud" onclick="switchTab('audited')"><div class="summary-cell__num">136</div><div class="summary-cell__label">Audited</div></div>
+      <div class="summary-cell" id="sc-ext" onclick="switchTab('extra')"><div class="summary-cell__num">2</div><div class="summary-cell__label">Extra</div></div>
+      <div class="summary-cell" id="sc-hag" onclick="switchTab('highaging')"><div class="summary-cell__num summary-cell__num--caution">8</div><div class="summary-cell__label">High-Ageing</div></div>
+    </div>
+
+    <!-- Tabs: DS 56px height, Body/Medium (16px/500), indicator 2px/1px-radius -->
+    <div class="tabs" style="margin-top:var(--s6);">
+      <button class="tab-btn" id="tb-remaining" onclick="switchTab('remaining')">Remaining</button>
+      <button class="tab-btn active" id="tb-audited" onclick="switchTab('audited')">Audited</button>
+      <button class="tab-btn" id="tb-extra" onclick="switchTab('extra')">Extra</button>
+      <button class="tab-btn" id="tb-highaging" onclick="switchTab('highaging')">High-Ageing <span class="tab-badge">8</span></button>
+    </div>
+
+    <!-- Remaining tab -->
+    <div class="tab-panel" id="tp-remaining">
+      <div class="tab-scroller">
+        <div class="list-item"><div class="list-item__content"><div class="list-item__headline">YA001103</div><div class="list-item__subheading">Bay 3, Shelf 1</div></div><div class="list-item__trailing"><span class="status-badge status-badge--idle">Idle</span></div></div>
+        <div class="list-item"><div class="list-item__content"><div class="list-item__headline">YA001204</div><div class="list-item__subheading">Bay 3, Shelf 2</div></div><div class="list-item__trailing"><span class="status-badge status-badge--charged">Charged</span></div></div>
+        <div class="list-item"><div class="list-item__content"><div class="list-item__headline">YA001305</div><div class="list-item__subheading">Bay 4, Shelf 1</div></div><div class="list-item__trailing"><span class="status-badge status-badge--idle">Idle</span></div></div>
+        <div class="list-item"><div class="list-item__content"><div class="list-item__headline">YA001406</div><div class="list-item__subheading">Bay 4, Shelf 2</div></div><div class="list-item__trailing"><span class="status-badge status-badge--discharging">Discharging</span></div></div>
+        <div class="list-item"><div class="list-item__content"><div class="list-item__headline">YA001507</div><div class="list-item__subheading">Bay 5, Shelf 1</div></div><div class="list-item__trailing"><span class="status-badge status-badge--idle">Idle</span></div></div>
+        <div class="list-item list-item--no-divider"><div class="list-item__content"><div class="list-item__headline">YA001608</div><div class="list-item__subheading">Bay 5, Shelf 3</div></div><div class="list-item__trailing"><span class="status-badge status-badge--charged">Charged</span></div></div>
+      </div>
+    </div>
+
+    <!-- Audited tab -->
+    <div class="tab-panel active" id="tp-audited"><div class="tab-scroller" id="auditedList"></div></div>
+
+    <!-- Extra tab -->
+    <div class="tab-panel" id="tp-extra">
+      <div class="tab-scroller">
+        <div class="list-item list-item--clickable" onclick="openDetail('YA009901')">
+          <div class="list-item__content"><div class="list-item__headline">YA009901</div><div class="list-item__subheading">Bay 2, Shelf 1 · Not in manifest</div></div>
+          <div class="list-item__trailing"><span class="status-badge status-badge--charged">Charged</span><span class="status-badge status-badge--extra">Extra</span></div>
+        </div>
+        <div class="list-item list-item--clickable list-item--no-divider" onclick="openDetail('YA009902')">
+          <div class="list-item__content"><div class="list-item__headline">YA009902</div><div class="list-item__subheading">Bay 6, Shelf 2 · Not in manifest</div></div>
+          <div class="list-item__trailing"><span class="status-badge status-badge--idle">Idle</span><span class="status-badge status-badge--extra">Extra</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- High-Ageing tab -->
+    <div class="tab-panel" id="tp-highaging"><div class="tab-scroller" id="highAgeList"></div></div>
+
+    <!-- Overlay -->
+    <div class="overlay" id="s3ov" onclick="closeSheets()"></div>
+
+    <!-- Battery Detail Sheet -->
+    <div class="sheet" id="detailSheet">
+      <div class="sheet__handle"></div>
+      <div class="sheet__head">
+        <div><div class="sheet__title" id="ds-id">YA002699</div><div class="sheet__sub">Battery details</div></div>
+        <button class="sheet__close" onclick="closeSheets()"><svg width="16" height="16" fill="none"><path d="M12 4L4 12M4 4l8 8" stroke="var(--content-primary)" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="sheet__body">
+        <div class="sheet__field"><div class="sheet__field-label">State</div><div id="ds-state-chip"></div></div>
+        <div class="sheet__field" id="ds-age-field"><div class="sheet__field-label">Ageing</div><div class="sheet__field-value" id="ds-age"></div></div>
+        <div class="sheet__field" id="ds-src-field"><div class="sheet__field-label">Ageing source</div><div class="sheet__field-value" id="ds-src" style="font-size:14px;color:var(--content-secondary);"></div></div>
+        <div class="sheet__field"><div class="sheet__field-label">Location</div><div class="sheet__field-value" id="ds-loc"></div></div>
+        <div class="sheet__field">
+          <div class="sheet__field-label">Ready Pool</div>
+          <div class="sheet__field-row">
+            <span id="ds-rp-label" style="font-size:14px;font-weight:500;color:var(--content-secondary);">Not in Ready Pool</span>
+            <label class="toggle"><input type="checkbox" id="ds-rp-toggle" onchange="toggleRpFromSheet()"><div class="toggle__track"></div><div class="toggle__thumb"></div></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ready Pool Sheet -->
+    <div class="sheet" id="rpSheet">
+      <div class="sheet__handle"></div>
+      <div class="sheet__head">
+        <div><div class="sheet__title">Ready Pool</div><div class="sheet__sub" id="rps-sub">0 batteries queued for deployment</div></div>
+        <button class="sheet__close" onclick="closeSheets()"><svg width="16" height="16" fill="none"><path d="M12 4L4 12M4 4l8 8" stroke="var(--content-primary)" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="sheet__body" id="rpList">
+        <div class="empty" id="rpEmpty">
+          <div class="empty__icon"><svg width="28" height="28" fill="none" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="13" rx="2" stroke="var(--content-tertiary)" stroke-width="2"/><path d="M16 8V6a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke="var(--content-tertiary)" stroke-width="2"/></svg></div>
+          <div class="empty__title">Ready Pool is empty</div>
+          <div class="empty__sub">Add batteries from the audit list to queue them for deployment.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Soft Warning Sheet -->
+    <div class="sheet" id="warnSheet">
+      <div class="sheet__handle"></div>
+      <div class="sheet__head" style="padding-bottom:0;"><div class="sheet__title">End audit?</div></div>
+      <div style="padding:var(--s4) var(--s6) var(--s4);"><div class="sheet__sub" id="warnText">You have 8 high-ageing batteries. Consider moving them to the Ready Pool before ending.</div></div>
+      <div class="warn-badge">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="var(--content-caution)" stroke-width="2"/><path d="M12 8v4" stroke="var(--content-caution)" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1" fill="var(--content-caution)"/></svg>
+        <div class="warn-badge__text" id="warnBadgeText">8 batteries have been sitting &gt;24h without action</div>
+      </div>
+      <div class="warn-btns">
+        <button class="btn-primary" onclick="goToHighAgeing()">Add to Ready Pool</button>
+        <button class="btn-secondary" onclick="proceedToS4()">End anyway</button>
+      </div>
+    </div>
+
+    <div class="bottom-bar">
+      <div class="rp-bar" onclick="openRpSheet()">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="13" rx="2" stroke="var(--content-primary)" stroke-width="2"/><path d="M16 8V6a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke="var(--content-primary)" stroke-width="2"/></svg>
+        <span class="rp-bar__label">Ready Pool</span>
+        <span class="rp-bar__count" id="rpBarCount">0 batteries</span>
+        <svg width="16" height="16" fill="none"><path d="M6 4l4 4-4 4" stroke="var(--content-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <button class="btn-primary" onclick="handleEndAudit()">End battery audit</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     SCREEN 4 — Missing Battery
+════════════════════════════════════════════════════════ -->
+<div style="display:flex;flex-direction:column;align-items:center;">
+  <div class="phone-label">Screen 4 — Missing Battery</div>
+  <div class="phone">
+    <div class="top-app-bar">
+      <button class="top-app-bar__btn"><svg width="24" height="24" fill="none"><path d="M15 18L9 12L15 6" stroke="var(--content-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="top-app-bar__spacer"></div>
+    </div>
+    <div class="page-header">
+      <div class="page-header__title">Missing batteries</div>
+      <div class="page-header__sub">2 batteries not found in this audit</div>
+    </div>
+    <div class="screen">
+      <div style="margin-top:var(--s12);">
+        <div class="missing-banner">
+          <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="var(--content-negative)" stroke-width="2"/><path d="M12 8v4" stroke="var(--content-negative)" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1" fill="var(--content-negative)"/></svg>
+          <div><div class="missing-banner__text">2 batteries unscanned</div><div class="missing-banner__sub">Manager Chandan Prabhakar notified</div></div>
+        </div>
+        <!-- List items with inset dividers and left severity bar -->
+        <div class="list-item list-item--with-sub">
+          <div class="list-item__severity list-item__severity--negative"></div>
+          <div class="list-item__content" style="padding-left:var(--s2);">
+            <div class="list-item__headline">YA001089</div>
+            <div class="list-item__subheading">Last seen: Bay 2, Shelf 3 · 3 days ago</div>
+            <div style="font-size:12px;font-weight:500;color:var(--content-negative);margin-top:var(--s2);">Missing</div>
+          </div>
+          <div class="list-item__trailing"><span class="status-badge status-badge--idle">Idle</span><span class="status-badge status-badge--missing" id="s4status1">Pending</span></div>
+        </div>
+        <div class="list-item list-item--with-sub list-item--no-divider">
+          <div class="list-item__severity list-item__severity--negative"></div>
+          <div class="list-item__content" style="padding-left:var(--s2);">
+            <div class="list-item__headline">YA001142</div>
+            <div class="list-item__subheading">Last seen: Bay 4, Shelf 1 · 1 day ago</div>
+            <div style="font-size:12px;font-weight:500;color:var(--content-negative);margin-top:var(--s2);">Missing</div>
+          </div>
+          <div class="list-item__trailing"><span class="status-badge status-badge--discharging">Discharging</span><span class="status-badge status-badge--missing" id="s4status2">Pending</span></div>
+        </div>
+      </div>
+      <!-- Manager notification -->
+      <div class="section">
+        <div style="background:var(--surface-secondary);border-radius:16px;padding:var(--s4) var(--s6);">
+          <div style="font-size:12px;font-weight:500;color:var(--content-tertiary);margin-bottom:var(--s2);">Notification sent to</div>
+          <div style="display:flex;align-items:center;gap:var(--s4);">
+            <div style="width:40px;height:40px;border-radius:50%;background:var(--surface-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="font-size:14px;font-weight:700;color:var(--content-inverse);">CP</span></div>
+            <div><div style="font-size:14px;font-weight:700;color:var(--content-primary);">Chandan Prabhakar</div><div style="font-size:12px;font-weight:500;color:var(--content-secondary);">Warehouse Manager</div></div>
+            <div style="margin-left:auto;font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;background:rgba(0,101,79,.1);color:var(--content-positive);">Notified</div>
+          </div>
+        </div>
+      </div>
+      <!-- Note -->
+      <div class="section">
+        <div style="font-size:14px;font-weight:700;color:var(--content-primary);margin-bottom:var(--s2);">Add a note</div>
+        <textarea placeholder="e.g. May be on bike YL-0042…" style="width:100%;min-height:80px;border:1.5px solid var(--border-primary);border-radius:12px;padding:var(--s4);font-family:var(--font);font-size:14px;font-weight:500;color:var(--content-primary);resize:none;outline:none;transition:border-color .15s;" onfocus="this.style.borderColor='var(--border-secondary)'" onblur="this.style.borderColor='var(--border-primary)'"></textarea>
+      </div>
+      <!-- Simulate resolution -->
+      <div class="section">
+        <div style="font-size:12px;font-weight:500;color:var(--content-tertiary);margin-bottom:var(--s2);">Simulate resolution</div>
+        <div style="display:flex;gap:var(--s2);">
+          <button onclick="resolveStatus(1)" style="flex:1;height:40px;border-radius:100px;border:1px solid var(--border-positive);background:rgba(0,101,79,.08);font-family:var(--font);font-size:13px;font-weight:700;color:var(--content-positive);cursor:pointer;">Mark Found #1</button>
+          <button onclick="resolveStatus(2)" style="flex:1;height:40px;border-radius:100px;border:1px solid var(--border-positive);background:rgba(0,101,79,.08);font-family:var(--font);font-size:13px;font-weight:700;color:var(--content-positive);cursor:pointer;">Mark Found #2</button>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-bar"><button class="btn-primary">Submit &amp; end audit</button></div>
+  </div>
+</div>
+
+
+<script>
+const readyPool = new Set();
+let s2Count=0,s2Timer=null,s2Busy=false;
+
+function doScan(btn,e){
+  if(btn.disabled||btn.classList.contains('scanned')||s2Busy)return;
+  s2Busy=true;
+  const r=document.createElement('span');r.className='ripple';
+  const rect=btn.getBoundingClientRect(),sz=Math.max(rect.width,rect.height);
+  r.style.cssText=`width:${sz}px;height:${sz}px;left:${e.clientX-rect.left-sz/2}px;top:${e.clientY-rect.top-sz/2}px`;
+  btn.appendChild(r);setTimeout(()=>r.remove(),600);
+  btn.classList.add('scanned');btn.disabled=true;
+  s2Count++;
+  document.getElementById('s2count').textContent=s2Count;
+  document.getElementById('s2fill').style.width=(s2Count/6*100)+'%';
+  document.getElementById('s2cid').textContent=btn.dataset.id;
+  const badge=document.getElementById('s2badge');badge.innerHTML='';
+  if(btn.dataset.age==='caution'||btn.dataset.age==='negative')
+    badge.innerHTML=`<div class="age-badge age-badge--${btn.dataset.age}">⏱ Ageing: ${btn.dataset.dur} · ${btn.dataset.src}</div>`;
+  document.getElementById('s2ov').classList.add('vis');
+  const card=document.getElementById('s2card');card.classList.remove('hiding');void card.offsetWidth;card.classList.add('vis');
+  s2Timer=setTimeout(dismissScan,2000);
+  if(s2Count===6)setTimeout(()=>{document.getElementById('s2endBtn').disabled=false;},2400);
+}
+function dismissScan(){
+  clearTimeout(s2Timer);
+  const card=document.getElementById('s2card');card.classList.remove('vis');card.classList.add('hiding');
+  document.getElementById('s2ov').classList.remove('vis');
+  setTimeout(()=>{card.classList.remove('hiding');s2Busy=false;},220);
+}
+function s2End(){const btn=document.getElementById('s2endBtn');btn.textContent='Audit complete ✓';btn.style.background='var(--surface-positive)';btn.disabled=true;}
+
+const batteries=[
+  {id:'YA002699',state:'charged',    age:null,      ageType:null,      src:null,loc:'Bay 1, Shelf 1'},
+  {id:'YA003812',state:'idle',       age:'31h 14m', ageType:'caution', src:'Arrived with Bike YL-0042 on 9 May, 11:03 AM',loc:'Bay 1, Shelf 2'},
+  {id:'YA004521',state:'charged',    age:null,      ageType:null,      src:null,loc:'Bay 2, Shelf 1'},
+  {id:'YA005103',state:'discharging',age:null,      ageType:null,      src:null,loc:'Bay 2, Shelf 2'},
+  {id:'YA006234',state:'faulty',     age:'52h 07m', ageType:'negative',src:'Arrived with Bike YL-0099 on 8 May, 09:15 AM',loc:'Bay 3, Shelf 1'},
+  {id:'YA007890',state:'charged',    age:null,      ageType:null,      src:null,loc:'Bay 3, Shelf 2'},
+  {id:'YA008001',state:'idle',       age:'29h 45m', ageType:'caution', src:'Checked in standalone on 8 May, 18:22 PM',loc:'Bay 4, Shelf 1'},
+  {id:'YA008102',state:'charged',    age:'61h 30m', ageType:'negative',src:'Arrived with Bike YL-0011 on 7 May, 08:00 AM',loc:'Bay 4, Shelf 2'},
+];
+const highAge=batteries.filter(b=>b.age);
+const stateChip={
+  charged:'<span class="status-badge status-badge--charged">Charged</span>',
+  idle:'<span class="status-badge status-badge--idle">Idle</span>',
+  discharging:'<span class="status-badge status-badge--discharging">Discharging</span>',
+  faulty:'<span class="status-badge status-badge--faulty">Faulty</span>',
+};
+let currentDetailId=null;
+
+function buildAuditedRows(){
+  const list=document.getElementById('auditedList');list.innerHTML='';
+  batteries.forEach((b,i)=>{
+    const inRp=readyPool.has(b.id),div=document.createElement('div');
+    div.className='list-item'+(i===batteries.length-1?' list-item--no-divider':'');
+    div.innerHTML=`<div class="list-item__content"><div class="list-item__headline list-item__headline--tap" onclick="openDetail('${b.id}')">${b.id}</div><div class="list-item__subheading">${b.loc}</div></div><div class="list-item__trailing">${stateChip[b.state]}<div class="rp-check ${inRp?'checked':''}" id="rpc-aud-${b.id}" onclick="toggleRp('${b.id}',this)"><svg width="14" height="14" fill="none"><path d="M3 7l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>`;
+    list.appendChild(div);
+  });
+}
+function buildHighAgeRows(){
+  const list=document.getElementById('highAgeList');
+  if(!highAge.length){list.innerHTML=`<div class="empty"><div class="empty__icon"><svg width="28" height="28" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="var(--content-tertiary)" stroke-width="2"/><path d="M12 8v4M12 16h.01" stroke="var(--content-tertiary)" stroke-width="2" stroke-linecap="round"/></svg></div><div class="empty__title">No high-ageing batteries</div><div class="empty__sub">No batteries have been here for more than 24 hours.</div></div>`;return;}
+  list.innerHTML='';
+  highAge.forEach((b,i)=>{
+    const inRp=readyPool.has(b.id),div=document.createElement('div');
+    div.className='list-item list-item--with-sub'+(i===highAge.length-1?' list-item--no-divider':'');
+    div.innerHTML=`<div class="list-item__severity list-item__severity--${inRp?'positive':b.ageType}"></div><div class="list-item__content" style="padding-left:10px;"><div class="list-item__headline list-item__headline--tap" onclick="openDetail('${b.id}')">${b.id}</div><div class="list-item__age list-item__age--${b.ageType}">⏱ ${b.age}</div><div class="list-item__subheading">${b.src}</div></div><div class="list-item__trailing">${stateChip[b.state]}<div class="rp-check ${inRp?'checked':''}" id="rpc-hag-${b.id}" onclick="toggleRp('${b.id}',this)"><svg width="14" height="14" fill="none"><path d="M3 7l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>`;
+    list.appendChild(div);
+  });
+}
+function switchTab(name){
+  const map={remaining:'rem',audited:'aud',extra:'ext',highaging:'hag'};
+  ['remaining','audited','extra','highaging'].forEach(t=>{
+    document.getElementById('tb-'+t).classList.toggle('active',t===name);
+    document.getElementById('tp-'+t).classList.toggle('active',t===name);
+    document.getElementById('sc-'+map[t]).classList.toggle('active',t===name);
+  });
+}
+function toggleRp(id,el){
+  readyPool.has(id)?readyPool.delete(id):readyPool.add(id);
+  buildAuditedRows();buildHighAgeRows();updateRpBar();buildRpSheetRows();
+}
+function updateRpBar(){
+  const n=readyPool.size;
+  document.getElementById('rpBarCount').textContent=`${n} batter${n===1?'y':'ies'}`;
+  document.getElementById('rps-sub').textContent=`${n} batter${n===1?'y':'ies'} queued for deployment`;
+}
+function openDetail(id){
+  const b=batteries.find(x=>x.id===id)||{id,state:'idle',age:null,src:null,loc:'Unknown'};
+  currentDetailId=id;
+  document.getElementById('ds-id').textContent=id;
+  document.getElementById('ds-state-chip').innerHTML=stateChip[b.state]||'';
+  document.getElementById('ds-age-field').style.display=b.age?'':'none';
+  document.getElementById('ds-src-field').style.display=b.age?'':'none';
+  if(b.age){document.getElementById('ds-age').textContent=b.age+' in warehouse';document.getElementById('ds-src').textContent=b.src;}
+  document.getElementById('ds-loc').textContent=b.loc;
+  const inRp=readyPool.has(id);
+  document.getElementById('ds-rp-toggle').checked=inRp;
+  document.getElementById('ds-rp-label').textContent=inRp?'In Ready Pool':'Not in Ready Pool';
+  document.getElementById('ds-rp-label').style.color=inRp?'var(--content-positive)':'var(--content-secondary)';
+  showSheet('detailSheet');
+}
+function toggleRpFromSheet(){
+  if(!currentDetailId)return;
+  readyPool.has(currentDetailId)?readyPool.delete(currentDetailId):readyPool.add(currentDetailId);
+  const inRp=readyPool.has(currentDetailId);
+  document.getElementById('ds-rp-label').textContent=inRp?'In Ready Pool':'Not in Ready Pool';
+  document.getElementById('ds-rp-label').style.color=inRp?'var(--content-positive)':'var(--content-secondary)';
+  buildAuditedRows();buildHighAgeRows();updateRpBar();buildRpSheetRows();
+}
+function buildRpSheetRows(){
+  const list=document.getElementById('rpList'),empty=document.getElementById('rpEmpty');
+  if(!readyPool.size){empty.style.display='flex';list.innerHTML='';list.appendChild(empty);return;}
+  empty.style.display='none';list.innerHTML='';
+  [...readyPool].forEach(id=>{
+    const b=batteries.find(x=>x.id===id)||{id,state:'idle',age:null};
+    const div=document.createElement('div');div.className='rp-row';div.id='rpr-'+id;
+    div.innerHTML=`<div class="rp-row__main"><div class="rp-row__id">${id}</div><div class="rp-row__meta">${b.age?'⏱ '+b.age+' · ':''}${b.state.charAt(0).toUpperCase()+b.state.slice(1)}</div></div>${stateChip[b.state]}<button class="rp-row__remove" onclick="removeFromRp('${id}')"><svg width="14" height="14" fill="none"><path d="M12 4L4 12M4 4l8 8" stroke="var(--content-primary)" stroke-width="2" stroke-linecap="round"/></svg></button>`;
+    list.appendChild(div);
+  });
+}
+function removeFromRp(id){
+  const row=document.getElementById('rpr-'+id);
+  if(row){row.style.opacity='0';row.style.transform='translateX(40px)';row.style.transition='opacity .2s,transform .2s';setTimeout(()=>{readyPool.delete(id);buildRpSheetRows();buildAuditedRows();buildHighAgeRows();updateRpBar();},200);}
+}
+function openRpSheet(){buildRpSheetRows();showSheet('rpSheet');}
+function handleEndAudit(){
+  if(!readyPool.size&&highAge.length>0){
+    const n=highAge.length;
+    document.getElementById('warnText').textContent=`You have ${n} high-ageing batter${n===1?'y':'ies'}. Consider moving them to the Ready Pool before ending.`;
+    document.getElementById('warnBadgeText').textContent=`${n} batter${n===1?'y has':'ies have'} been sitting >24h without action`;
+    showSheet('warnSheet');
+  }else{proceedToS4();}
+}
+function goToHighAgeing(){closeSheets();switchTab('highaging');}
+function proceedToS4(){closeSheets();alert('Proceeding to Screen 4 — Missing Battery →');}
+function showSheet(id){
+  document.getElementById('s3ov').classList.add('vis');
+  const s=document.getElementById(id);s.classList.remove('hiding');void s.offsetWidth;s.classList.add('vis');
+}
+function closeSheets(){
+  ['detailSheet','rpSheet','warnSheet'].forEach(id=>{
+    const s=document.getElementById(id);s.classList.remove('vis');s.classList.add('hiding');
+    setTimeout(()=>s.classList.remove('hiding'),220);
+  });
+  document.getElementById('s3ov').classList.remove('vis');
+}
+function resolveStatus(n){
+  const el=document.getElementById('s4status'+n);
+  el.textContent='Found';el.style.background='rgba(0,101,79,.1)';el.style.color='var(--content-positive)';
+}
+buildAuditedRows();buildHighAgeRows();updateRpBar();
+</script>
+</body>
+</html>
